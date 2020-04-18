@@ -1,9 +1,13 @@
-import {AccountRepositoryLoginResponseLogged_in_user, StatusResponse} from "instagram-private-api/dist/responses";
+import {
+    AccountRepositoryLoginResponseLogged_in_user,
+    StatusResponse,
+    UserRepositoryInfoResponseUser
+} from "instagram-private-api/dist/responses";
 import {IgApiClient} from 'instagram-private-api/dist/core/client';
 import {IgLoginTwoFactorRequiredError} from 'instagram-private-api/dist/errors/ig-login-two-factor-required.error';
 import {AccountRepository} from "instagram-private-api/dist/repositories/account.repository";
 import inquirer from "inquirer";
-import {IgActionSpamError, IgResponseError} from "instagram-private-api";
+import {IgActionSpamError, IgResponseError, UserFeed} from "instagram-private-api";
 
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
@@ -78,7 +82,7 @@ export class InstaAutoComment {
     }
 
     //converts the id of a feed item to a media id
-    public feedItemIdTtoMediaId(string: string) {
+    public feedItemIdTtoMediaId(string: string): string {
         return string.substring(0, string.indexOf("_"));
     }
 
@@ -86,7 +90,7 @@ export class InstaAutoComment {
      *
      * @param id
      */
-    private getUserFeed(id: string | number = this.pk) {
+    private getUserFeed(id: string | number = this.pk): UserFeed {
         return this.ig.feed.user(id);
     }
 
@@ -127,7 +131,7 @@ export class InstaAutoComment {
         });
     }
 
-    public getUserPk(username: string) {
+    public getUserPk(username: string): Promise<number> {
         return this.ig.user.searchExact(username).then(r => {
             return new Promise((resolve, reject) => {
                 resolve(r.pk);
@@ -146,7 +150,7 @@ export class InstaAutoComment {
     /**
      * converts the id's (that are the target for the comments) as url's to the posts
      */
-    public printIdsToCommentOn() {
+    public printIdsToCommentOn(): void {
         console.log("Posts to comment on:");
         this.idsToCommentOn.forEach(elm => {
             console.log("https://www.instagram.com/p/" + instagramIdToUrlSegment(this.feedItemIdTtoMediaId(elm)));
@@ -154,7 +158,7 @@ export class InstaAutoComment {
         console.log("idsToCommentOn length: " + this.idsToCommentOn.length);
     }
 
-    public postCommentsOnSelectedItems(commentsArray: string[], delayBetweenComments = 3000) {
+    public postCommentsOnSelectedItems(commentsArray: string[], delayBetweenComments = 3000): void {
         console.log("postComments started");
         if (this.idsToCommentOn.length > 0) {
             let mediaRepo = this.ig.media;
@@ -184,7 +188,7 @@ export class InstaAutoComment {
         }
     }
 
-    private static choseRandomComment(array: string[]) {
+    private static choseRandomComment(array: string[]): string {
         return array[Math.floor(Math.random() * array.length)]
     }
 }
