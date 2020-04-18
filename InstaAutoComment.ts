@@ -34,7 +34,6 @@ export class InstaAutoComment {
         return new Promise((resolve, reject) => {
             this.ig.account.login(process.env.IG_USERNAME, process.env.IG_PASSWORD).then((result) => {
                 console.log("Logged in!");
-                // console.log("my pk: ", result.pk);
                 this.auth = result;
                 this.account = this.ig.account;
                 resolve(result);
@@ -160,8 +159,6 @@ export class InstaAutoComment {
         if (this.idsToCommentOn.length > 0) {
             let mediaRepo = this.ig.media;
             let comment = {mediaId: undefined, text: undefined};
-            let delayInMilliseconds = delayBetweenComments;
-            let intervalPos = 0;
             console.log("going to comment on " + this.idsToCommentOn.length + " comments(s)");
 
             this.idsToCommentOn.forEach((elm, i) => {
@@ -182,29 +179,6 @@ export class InstaAutoComment {
                     });
                 }, i * delayBetweenComments);
             });
-
-
-            // let commentingInterval = setInterval(() => {
-            //     comment.mediaId = this.idsToCommentOn[intervalPos];
-            //     comment.text = InstaAutoComment.choseRandomComment(commentsArray);
-            //     mediaRepo.comment(comment).then(r => {
-            //         console.log("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(r.media_id) + " with the comment " + r.text);
-            //     }).catch(err => {
-            //         if (err instanceof IgActionSpamError) {
-            //             console.log("IgActionSpamError");
-            //         } else if (err instanceof IgResponseError) {
-            //             console.log("IgResponseError");
-            //         } else {
-            //             console.log("error while commenting:");
-            //             console.log(err);
-            //         }
-            //     });
-            //
-            //     intervalPos++;
-            //     if (intervalPos >= this.idsToCommentOn.length) {
-            //         clearInterval(commentingInterval);
-            //     }
-            // }, delayInMilliseconds);
         } else {
             console.log("nothing to comment on");
         }
