@@ -12,9 +12,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node index.js",
-    "simple": "node simple.js"
+    "build": "node index.js",
+    "simple": "node simple.js",
+    "debug": "node index.js --inspect-brk"
   },
   "keywords": [],
   "author": "Elias Youssef",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^13.13.4",
+    "typescript": "^3.8.3"
+  }
 }

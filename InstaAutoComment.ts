@@ -1,7 +1,7 @@
 import {
     AccountRepositoryLoginResponseLogged_in_user,
     StatusResponse,
-    UserRepositoryInfoResponseUser
+    UserFeedResponseItemsItem
 } from "instagram-private-api/dist/responses";
 import {IgApiClient} from 'instagram-private-api/dist/core/client';
 import {IgLoginTwoFactorRequiredError} from 'instagram-private-api/dist/errors/ig-login-two-factor-required.error';
@@ -24,13 +24,13 @@ export class InstaAutoComment {
     public ig: IgApiClient;
     public account: AccountRepository;
     public idsToCommentOn = [];
-    public pk: number;
+    private userPk: number;
 
-    constructor(pk: number) {
+    constructor(userPk: number) {
         this.ig = new IgApiClient();
         this.ig.state.generateDevice(process.env.IG_USERNAME);
         this.ig.state.proxyUrl = process.env.IG_PROXY;
-        this.pk = pk;
+        this.userPk = userPk;
     }
 
     public login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
@@ -82,53 +82,52 @@ export class InstaAutoComment {
     }
 
     //converts the id of a feed item to a media id
-    public feedItemIdTtoMediaId(string: string): string {
-        return string.substring(0, string.indexOf("_"));
+    public feedItemIdToMediaId(feedItemId: string): string {
+        return feedItemId.substring(0, feedItemId.indexOf("_"));
+    }
+
+    //converts the id of a feed item to a media id
+    public feedItemIdToInstagramUrl(string: string): string {
+        let res = string.substring(0, string.indexOf("_"));
+        return instagramIdToUrlSegment(res);
     }
 
     /**
      *
      * @param id
      */
-    private getUserFeed(id: string | number = this.pk): UserFeed {
+    private getUserFeed(id: string | number = this.userPk): UserFeed {
         return this.ig.feed.user(id);
     }
 
     /**
      * gets id's of the user's posts that were uploaded within "secondsOld" ago (ex: posts that were uploaded 3 hours ago)
-     * @param userFeed
      * @param secondsOld
+     * @param doComment
      */
-    public selectUserItemsWithTimeRestriction(secondsOld: number = 3600): Promise<void> {
-        return new Promise((resolve, reject) => {
-            let nowTimestamp = Math.floor(Date.now() / 1000);
-            let subscription;
-            console.log("Selecting appropriate items");
-            let userFeed = this.getUserFeed();
-            subscription = userFeed.items$.subscribe(
-                items => {
-                    let res = items.every(element => {
-                        if ((nowTimestamp - element.taken_at) <= secondsOld) {
-                            this.idsToCommentOn.push(element.id);
-                            return true;
-                        } else {
-                            return false;
+    public async selectUserItemsWithTimeRestriction(secondsOld: number = 3600, doComment: DoComment = DoComment.IfThereIsNoComment) {
+        let nowTimestamp = Math.floor(Date.now() / 1000);
+        console.log("Selecting appropriate items");
+        let userFeed = this.getUserFeed();
+        let res;
+        let userFeedItems;
+        do {
+            userFeedItems = await userFeed.items();
+            for (let userFeedItem of userFeedItems) {
+                if ((nowTimestamp - userFeedItem.taken_at) <= secondsOld || secondsOld === -1) {// if the post isn't older than secondsOld
+                    if (doComment == DoComment.IfThereIsNoComment) {
+                        res = await this.haveCommented(userFeedItem);
+                        if (!res) {
+                            this.idsToCommentOn.push(userFeedItem.id);
                         }
-                    });
-                    if (!res) {
-                        subscription.complete();
+                    } else if (doComment == DoComment.EvenIfThereIsAComment) {
+                        this.idsToCommentOn.push(userFeedItem.id);
                     }
-                },
-                error => {
-                    console.error(error);
-                    reject(error);
-                },
-                () => {
-                    subscription.unsubscribe();
-                    resolve();
-                },
-            );
-        });
+                } else {
+                    break;
+                }
+            }
+        } while (userFeed.isMoreAvailable());
     }
 
     public getUserPk(username: string): Promise<number> {
@@ -153,36 +152,87 @@ export class InstaAutoComment {
     public printIdsToCommentOn(): void {
         console.log("Posts to comment on:");
         this.idsToCommentOn.forEach(elm => {
-            console.log("https://www.instagram.com/p/" + instagramIdToUrlSegment(this.feedItemIdTtoMediaId(elm)));
+            console.log("https://www.instagram.com/p/" + instagramIdToUrlSegment(this.feedItemIdToMediaId(elm)));
         });
         console.log("idsToCommentOn length: " + this.idsToCommentOn.length);
     }
 
-    public postCommentsOnSelectedItems(commentsArray: string[], delayBetweenComments = 3000): void {
-        console.log("postComments started");
+    // public async asyncHaveCommented(id: string) {
+    //     return this.haveCommented(id);
+    // }
+
+    /**
+     *
+     * @param userFeedItem a feed item id of a media/post
+     */
+    public async haveCommented(userFeedItem: UserFeedResponseItemsItem) {
+        let feedItemId = userFeedItem.id;
+        let mediaCommentsFeed = this.ig.feed.mediaComments(feedItemId);
+        let currentUser = await this.ig.account.currentUser();
+        let subscription;
+        let res = false;
+        let feedItems;
+        do {
+            feedItems = await mediaCommentsFeed.items();
+            for (let feedItem of feedItems) {
+                if (feedItem.user_id === currentUser.pk) {
+                    res = true;
+                }
+            }
+            if (res) {
+                // console.log("comment exists on: " + "https://www.instagram.com/p/" + this.feedItemIdToInstagramUrl(feedItemId));
+                break;
+            }
+        } while (mediaCommentsFeed.isMoreAvailable());
+        return res;
+
+        // let user = await this.ig.account.currentUser();
+        // subscription = mediaCommentsFeed.items$.subscribe(
+        //     items => {
+        //         res = items.some(async comment => {
+        //             return comment.user_id === user.pk;
+        //         });
+        //         if (res) {
+        //             console.log("comment exists on: " + "https://www.instagram.com/p/" + this.feedItemIdToInstagramUrl(id));
+        //             subscription.complete();
+        //         }
+        //     },
+        //     error => {
+        //         console.error(error);
+        //         reject(error);
+        //     },
+        //     () => {
+        //         subscription.unsubscribe();
+        //         resolve(res);
+        //     },
+        // );
+    }
+
+    public async postRandomCommentsOnSelectedItems(commentsArray: string[], delayBetweenComments = 3000) {
         if (this.idsToCommentOn.length > 0) {
             let mediaRepo = this.ig.media;
             let comment = {mediaId: undefined, text: undefined};
             console.log("going to comment on " + this.idsToCommentOn.length + " comments(s)");
+            let commentResult;
 
-            this.idsToCommentOn.forEach((elm, i) => {
-                setTimeout(() => {
-                    comment.mediaId = this.idsToCommentOn[i];
-                    comment.text = InstaAutoComment.choseRandomComment(commentsArray);
-                    mediaRepo.comment(comment).then(r => {
-                        console.log("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(r.media_id) + " with the comment " + r.text);
-                    }).catch(err => {
-                        if (err instanceof IgActionSpamError) {
-                            console.log("IgActionSpamError");
-                        } else if (err instanceof IgResponseError) {
-                            console.log("IgResponseError");
-                        } else {
-                            console.log("error while commenting:");
-                            console.log(err);
-                        }
-                    });
-                }, i * delayBetweenComments);
-            });
+            for (let idToCommentOn of this.idsToCommentOn) {
+                comment.mediaId = idToCommentOn;
+                comment.text = InstaAutoComment.choseRandomComment(commentsArray);
+                try {
+                    commentResult = await mediaRepo.comment(comment);
+                    console.log("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text);
+                } catch (err) {
+                    if (err instanceof IgActionSpamError) {
+                        console.log("IgActionSpamError");
+                    } else if (err instanceof IgResponseError) {
+                        console.log("IgResponseError");
+                    } else {
+                        console.log("error while commenting:");
+                        console.log(err);
+                    }
+                }
+                await new Promise(r => setTimeout(r, delayBetweenComments));
+            }
         } else {
             console.log("nothing to comment on");
         }
@@ -191,4 +241,46 @@ export class InstaAutoComment {
     private static choseRandomComment(array: string[]): string {
         return array[Math.floor(Math.random() * array.length)]
     }
+
+    public async accountFollowing(id: number) {
+        console.log("Getting following...");
+        const followingFeed = this.ig.feed.accountFollowing(id);
+        // console.log("followingFeed.request()");
+        // return followingFeed.request();
+
+        console.log("Following:");
+        let first = followingFeed.toPlain();
+
+        // let second = await followingFeed.items();
+        // console.log(second.length);
+
+        // const feedState = followingFeed.serialize(); // You can serialize feed state to have an ability to continue get next pages.
+        // console.log(feedState);
+        // followingFeed.deserialize(feedState);
+
+        // // You can use RxJS stream to subscribe to all results in this feed.
+        // // All the RxJS powerful is beyond this example - you should learn it by yourself.
+        // followingFeed.items$.subscribe(
+        //     following => console.log(following),
+        //     error => console.error(error),
+        //     () => console.log('Complete!'),
+        // );
+    }
+
+    public async accountMediaFeed(id: number) {
+        const userFeed = this.ig.feed.user(id);
+
+        let allItems = [];
+        do {
+            let items = await userFeed.items();
+            allItems = allItems.concat(items);
+        } while (userFeed.isMoreAvailable());
+
+        console.log("total posts: " + allItems.length.toString());
+    }
+}
+
+enum DoComment {
+    IfThereIsNoComment,
+    EvenIfThereIsAComment
 }

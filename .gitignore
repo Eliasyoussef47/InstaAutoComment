@@ -118,3 +118,6 @@ dist
 # compiled js files
 index.js
 InstaAutoComment.js
+/index.js.map
+/InstaAutoComment.js.map
+/tsconfig.json
