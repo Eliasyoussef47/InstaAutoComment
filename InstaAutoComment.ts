@@ -8,6 +8,7 @@ import {IgLoginTwoFactorRequiredError} from 'instagram-private-api/dist/errors/i
 import {AccountRepository} from "instagram-private-api/dist/repositories/account.repository";
 // import {inquirer} from "inquirer";
 import {IgActionSpamError, IgResponseError, UserFeed} from "instagram-private-api";
+const chalk = require('chalk');
 
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
@@ -31,6 +32,7 @@ export class InstaAutoComment {
     public account: AccountRepository;
     public idsToCommentOn = [];
     private userPk: number;
+    private throttleSeconds = 1000;
 
     constructor(userPk: number) {
         this.ig = new IgApiClient();
@@ -139,8 +141,7 @@ export class InstaAutoComment {
         do {
             userFeedItems = await userFeed.items();
             // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
-            console.log('.');
-            await new Promise(r => setTimeout(r, waitSeconds));
+            await new Promise(r => setTimeout(r, this.throttleSeconds));
             for (let userFeedItem of userFeedItems) {
                 if ((nowTimestamp - userFeedItem.taken_at) <= secondsOld || secondsOld === -1) {// if the post isn't older than secondsOld
                     if (doComment == DoComment.IfThereIsNoComment) {
@@ -203,16 +204,14 @@ export class InstaAutoComment {
         let mediaCommentsFeed = this.ig.feed.mediaComments(feedItemId);
         let currentUser = await this.ig.account.currentUser();
         // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
-        console.log('.');
-        await new Promise(r => setTimeout(r, waitSeconds));
+        await new Promise(r => setTimeout(r, this.throttleSeconds));
         let subscription;
         let res = false;
         let feedItems;
         do {
             feedItems = await mediaCommentsFeed.items();
             // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
-            console.log('.');
-            await new Promise(r => setTimeout(r, waitSeconds));
+            await new Promise(r => setTimeout(r, this.throttleSeconds));
             if (feedItems !== undefined) {
                 for (let feedItem of feedItems) {
                     if (feedItem.user_id === currentUser.pk) {
@@ -240,9 +239,8 @@ export class InstaAutoComment {
                 comment.text = InstaAutoComment.choseRandomComment(commentsArray);
                 try {
                     commentResult = await mediaRepo.comment(comment);
-                    console.log("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text);
+                    console.log(chalk.green("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text));
                     // console.log("SETTING TIMEOUT PROMISE FOR: " + (delayBetweenComments) + " SECONDS", new Date().toLocaleTimeString());
-                    console.log('.');
                     await new Promise(r => setTimeout(r, delayBetweenComments));
                 } catch (err) {
                     if (err instanceof IgActionSpamError) {
@@ -309,7 +307,7 @@ export class InstaAutoComment {
     }
 }
 
-enum DoComment {
+export enum DoComment {
     IfThereIsNoComment,
     EvenIfThereIsAComment
 }

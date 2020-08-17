@@ -1,6 +1,8 @@
 import {InstaAutoComment} from "./InstaAutoComment";
+import {DoComment} from "./InstaAutoComment";
 import * as util from "util";
 require('dotenv').config();
+const chalk = require('chalk');
 
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
@@ -28,9 +30,12 @@ let iac = new InstaAutoComment(trackingUserPk);
 (async () => {
     iac.login().then(async r => {
         let intervalFunc = async () => {
-            await iac.selectUserItemsWithTimeRestriction(postSecondsOld);
+            console.log(chalk.blue('LOOP START'), new Date().toLocaleTimeString());
+            await iac.selectUserItemsWithTimeRestriction(postSecondsOld, DoComment.IfThereIsNoComment);
             // await iac.printIdsToCommentOn();
-            await iac.postRandomCommentsOnSelectedItems(commentsArray, 3000);
+            await iac.postRandomCommentsOnSelectedItems(commentsArray, 1000);
+            console.log(chalk.blue('LOOP END'), new Date().toLocaleTimeString());
+            console.log('\n');
         };
         await intervalFunc();
         let interval = setInterval(intervalFunc, loopInterval);
