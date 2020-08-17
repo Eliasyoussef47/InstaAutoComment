@@ -6,7 +6,7 @@ import {
 import {IgApiClient} from 'instagram-private-api/dist/core/client';
 import {IgLoginTwoFactorRequiredError} from 'instagram-private-api/dist/errors/ig-login-two-factor-required.error';
 import {AccountRepository} from "instagram-private-api/dist/repositories/account.repository";
-import inquirer from "inquirer";
+// import {inquirer} from "inquirer";
 import {IgActionSpamError, IgResponseError, UserFeed} from "instagram-private-api";
 
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
@@ -14,8 +14,14 @@ ref = require('instagram-id-to-url-segment');
 instagramIdToUrlSegment = ref.instagramIdToUrlSegment;
 urlSegmentToInstagramId = ref.urlSegmentToInstagramId;
 
+import inquirer = require('inquirer');
 require('instagram-id-to-url-segment');
 require('dotenv').config();
+
+const igUser = process.env.IG_USERNAME;
+let igPass = process.env.IG_PASSWORD;
+const trackingUserPk: number = +process.env.TRACKING_USER_PK;
+
 
 export class InstaAutoComment {
     public static commentArrayTest = ["test1", "test2", "test3", "test4"];
@@ -28,16 +34,30 @@ export class InstaAutoComment {
 
     constructor(userPk: number) {
         this.ig = new IgApiClient();
-        this.ig.state.generateDevice(process.env.IG_USERNAME);
+        this.ig.state.generateDevice(igUser);
         this.ig.state.proxyUrl = process.env.IG_PROXY;
         this.userPk = userPk;
     }
 
     public login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
-        console.log("Attempting login");
-        return new Promise((resolve, reject) => {
-            this.ig.account.login(process.env.IG_USERNAME, process.env.IG_PASSWORD).then((result) => {
-                console.log("Logged in!");
+        return new Promise(async (resolve, reject) => {
+            if (!igPass) {
+                console.log("Username: " + igUser);
+                await inquirer.prompt([
+                    {
+                        type: 'password',
+                        name: 'igPass',
+                        message: 'Password',
+                    }
+                ]).then(r => {
+                    igPass = r.igPass;
+                });
+            }
+            this.ig.account.login(igUser, igPass).then(async (result) => {
+                console.log("Logged in as: ", result.username);
+                let trackingUser = await this.ig.user.info(trackingUserPk);
+                console.log("Tracking: ", trackingUser.username);
+                console.log('\n');
                 this.auth = result;
                 this.account = this.ig.account;
                 resolve(result);
@@ -63,8 +83,11 @@ export class InstaAutoComment {
                         twoFactorIdentifier: two_factor_identifier,
                         verificationMethod, // '1' = SMS (default), '0' = TOTP (google auth for example)
                         trustThisDevice: '1', // Can be omitted as '1' is used by default
-                    }).then((result) => {
-                        console.log("Logged in!");
+                    }).then(async (result) => {
+                        console.log("Logged in as: ", result.username);
+                        let trackingUser = await this.ig.user.info(trackingUserPk);
+                        console.log("Tracking: ", trackingUser.username);
+                        console.log('\n');
                         this.auth = result;
                         this.account = this.ig.account;
                         resolve(result);
@@ -107,12 +130,17 @@ export class InstaAutoComment {
      */
     public async selectUserItemsWithTimeRestriction(secondsOld: number = 3600, doComment: DoComment = DoComment.IfThereIsNoComment) {
         let nowTimestamp = Math.floor(Date.now() / 1000);
+        let waitSeconds = 3000;
         console.log("Selecting appropriate items");
         let userFeed = this.getUserFeed();
         let res;
         let userFeedItems;
+        let breakDoWhileLoop = false;
         do {
             userFeedItems = await userFeed.items();
+            // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
+            console.log('.');
+            await new Promise(r => setTimeout(r, waitSeconds));
             for (let userFeedItem of userFeedItems) {
                 if ((nowTimestamp - userFeedItem.taken_at) <= secondsOld || secondsOld === -1) {// if the post isn't older than secondsOld
                     if (doComment == DoComment.IfThereIsNoComment) {
@@ -124,8 +152,12 @@ export class InstaAutoComment {
                         this.idsToCommentOn.push(userFeedItem.id);
                     }
                 } else {
+                    breakDoWhileLoop = true;
                     break;
                 }
+            }
+            if (breakDoWhileLoop) {
+                break;
             }
         } while (userFeed.isMoreAvailable());
     }
@@ -166,17 +198,26 @@ export class InstaAutoComment {
      * @param userFeedItem a feed item id of a media/post
      */
     public async haveCommented(userFeedItem: UserFeedResponseItemsItem) {
+        let waitSeconds = 3000;
         let feedItemId = userFeedItem.id;
         let mediaCommentsFeed = this.ig.feed.mediaComments(feedItemId);
         let currentUser = await this.ig.account.currentUser();
+        // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
+        console.log('.');
+        await new Promise(r => setTimeout(r, waitSeconds));
         let subscription;
         let res = false;
         let feedItems;
         do {
             feedItems = await mediaCommentsFeed.items();
-            for (let feedItem of feedItems) {
-                if (feedItem.user_id === currentUser.pk) {
-                    res = true;
+            // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
+            console.log('.');
+            await new Promise(r => setTimeout(r, waitSeconds));
+            if (feedItems !== undefined) {
+                for (let feedItem of feedItems) {
+                    if (feedItem.user_id === currentUser.pk) {
+                        res = true;
+                    }
                 }
             }
             if (res) {
@@ -185,27 +226,6 @@ export class InstaAutoComment {
             }
         } while (mediaCommentsFeed.isMoreAvailable());
         return res;
-
-        // let user = await this.ig.account.currentUser();
-        // subscription = mediaCommentsFeed.items$.subscribe(
-        //     items => {
-        //         res = items.some(async comment => {
-        //             return comment.user_id === user.pk;
-        //         });
-        //         if (res) {
-        //             console.log("comment exists on: " + "https://www.instagram.com/p/" + this.feedItemIdToInstagramUrl(id));
-        //             subscription.complete();
-        //         }
-        //     },
-        //     error => {
-        //         console.error(error);
-        //         reject(error);
-        //     },
-        //     () => {
-        //         subscription.unsubscribe();
-        //         resolve(res);
-        //     },
-        // );
     }
 
     public async postRandomCommentsOnSelectedItems(commentsArray: string[], delayBetweenComments = 3000) {
@@ -221,21 +241,30 @@ export class InstaAutoComment {
                 try {
                     commentResult = await mediaRepo.comment(comment);
                     console.log("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text);
+                    // console.log("SETTING TIMEOUT PROMISE FOR: " + (delayBetweenComments) + " SECONDS", new Date().toLocaleTimeString());
+                    console.log('.');
+                    await new Promise(r => setTimeout(r, delayBetweenComments));
                 } catch (err) {
                     if (err instanceof IgActionSpamError) {
                         console.log("IgActionSpamError");
                     } else if (err instanceof IgResponseError) {
-                        console.log("IgResponseError");
+                        console.log("IgResponseError on: ", "https://www.instagram.com/p/" + instagramIdToUrlSegment(idToCommentOn));
+                        console.log(err);
+                        console.log('err.message: ', err.message);
+                        console.log('err.response: ', err.response);
+                        console.log('err.text: ', err.text);
+                        console.log('err.name: ', err.name);
+                        console.log('err.stack: ', err.stack);
                     } else {
                         console.log("error while commenting:");
                         console.log(err);
                     }
                 }
-                await new Promise(r => setTimeout(r, delayBetweenComments));
             }
         } else {
             console.log("nothing to comment on");
         }
+        this.idsToCommentOn = [];
     }
 
     private static choseRandomComment(array: string[]): string {
@@ -283,4 +312,12 @@ export class InstaAutoComment {
 enum DoComment {
     IfThereIsNoComment,
     EvenIfThereIsAComment
+}
+
+function isIterable(obj) {
+    // checks for null and undefined
+    if (obj == null) {
+        return false;
+    }
+    return typeof obj[Symbol.iterator] === 'function';
 }

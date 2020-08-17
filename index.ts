@@ -1,5 +1,6 @@
 import {InstaAutoComment} from "./InstaAutoComment";
 import * as util from "util";
+require('dotenv').config();
 
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
@@ -15,19 +16,23 @@ urlSegmentToInstagramId = ref.urlSegmentToInstagramId;
 
 //Betty feed item id  2282271774947131603_2153673617
 //SyrianShady feed item id 2289673074177870289_34084408297
-let iac = new InstaAutoComment(34084408297);
 util.inspect.defaultOptions.maxArrayLength = null;
+const loopInterval: number = +process.env.LOOP_INTERVAL;
+const trackingUserPk: number = +process.env.TRACKING_USER_PK;
+const postSecondsOld: number = +process.env.POST_SECONDS_OLD;
+const commentsArray = process.env.COMMENTS_ARRAY.split(",").map((item)=>item.trim());
+
+let iac = new InstaAutoComment(trackingUserPk);
 
 
 (async () => {
     iac.login().then(async r => {
-        // iac.accountFollowing(34084408297);
-        // iac.accountMediaFeed(2153673617);
-        await iac.selectUserItemsWithTimeRestriction(-1);
-        await iac.printIdsToCommentOn();
-
-        // iac.postRandomCommentsOnSelectedItems(InstaAutoComment.commentArrayTest, 1000);
-        // iac.haveCommented("2289673074177870289_34084408297");
-        // console.log(instagramIdToUrlSegment(iac.feedItemIdTtoMediaId("2282271774947131603_2153673617")));
+        let intervalFunc = async () => {
+            await iac.selectUserItemsWithTimeRestriction(postSecondsOld);
+            // await iac.printIdsToCommentOn();
+            await iac.postRandomCommentsOnSelectedItems(commentsArray, 3000);
+        };
+        await intervalFunc();
+        let interval = setInterval(intervalFunc, loopInterval);
     })
 })();
