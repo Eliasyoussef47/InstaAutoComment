@@ -1,5 +1,5 @@
 import {
-    AccountRepositoryLoginResponseLogged_in_user,
+    AccountRepositoryLoginResponseLogged_in_user, MediaRepositoryCommentResponseComment,
     StatusResponse,
     UserFeedResponseItemsItem
 } from "instagram-private-api/dist/responses";
@@ -9,15 +9,20 @@ import {AccountRepository} from "instagram-private-api/dist/repositories/account
 // import {inquirer} from "inquirer";
 import {IgActionSpamError, IgResponseError, UserFeed} from "instagram-private-api";
 const chalk = require('chalk');
-
+import { promisify } from 'util';
+import { writeFile, readFile, exists } from 'fs';
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
 instagramIdToUrlSegment = ref.instagramIdToUrlSegment;
 urlSegmentToInstagramId = ref.urlSegmentToInstagramId;
-
+import { FbnsClient, IgApiClientExt, IgApiClientFbns, withFbns } from 'instagram_mqtt';
 import inquirer = require('inquirer');
 require('instagram-id-to-url-segment');
 require('dotenv').config();
+
+const writeFileAsync = promisify(writeFile);
+const readFileAsync = promisify(readFile);
+const existsAsync = promisify(exists);
 
 const igUser = process.env.IG_USERNAME;
 let igPass = process.env.IG_PASSWORD;
@@ -28,20 +33,21 @@ export class InstaAutoComment {
     public static commentArrayTest = ["test1", "test2", "test3", "test4"];
     public static commentArrayStupid = ["Cute", "❤❤❤❤", "😍😍😍😍", "😘😘😘😘", "🧡🧡🧡🧡", "💛💛💛💛", "💚💚💚💚"];
     public auth: AccountRepositoryLoginResponseLogged_in_user;
-    public ig: IgApiClient;
+    public ig: IgApiClientFbns;
     public account: AccountRepository;
     public idsToCommentOn = [];
     private userPk: number;
     private throttleSeconds = 1000;
 
     constructor(userPk: number) {
-        this.ig = new IgApiClient();
+        this.ig = withFbns(new IgApiClient());
         this.ig.state.generateDevice(igUser);
         this.ig.state.proxyUrl = process.env.IG_PROXY;
         this.userPk = userPk;
     }
 
-    public login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
+    public async login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
+        await this.readState(this.ig);
         return new Promise(async (resolve, reject) => {
             if (!igPass) {
                 console.log("Username: " + igUser);
@@ -55,6 +61,7 @@ export class InstaAutoComment {
                     igPass = r.igPass;
                 });
             }
+            this.ig.request.end$.subscribe(() => this.saveState(this.ig));
             this.ig.account.login(igUser, igPass).then(async (result) => {
                 console.log("Logged in as: ", result.username);
                 let trackingUser = await this.ig.user.info(trackingUserPk);
@@ -265,6 +272,34 @@ export class InstaAutoComment {
         this.idsToCommentOn = [];
     }
 
+    public async commentOnPostWithRandomComment(mediaId: string, commentsArray: string[]) {
+        let mediaRepo = this.ig.media;
+        let comment = {mediaId: undefined, text: undefined};
+        let commentResult: MediaRepositoryCommentResponseComment;
+        comment.mediaId = mediaId;
+        comment.text = InstaAutoComment.choseRandomComment(commentsArray);
+
+        try {
+            commentResult = await mediaRepo.comment(comment);
+            console.log(chalk.green("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text));
+        } catch (err) {
+            if (err instanceof IgActionSpamError) {
+                console.log("IgActionSpamError");
+            } else if (err instanceof IgResponseError) {
+                console.log(chalk.red("IgResponseError on: ", "https://www.instagram.com/p/" + instagramIdToUrlSegment(mediaId)));
+                console.log(err);
+                console.log('err.message: ', err.message);
+                console.log('err.response: ', err.response);
+                console.log('err.text: ', err.text);
+                console.log('err.name: ', err.name);
+                console.log('err.stack: ', err.stack);
+            } else {
+                console.log("error while commenting:");
+                console.log(err);
+            }
+        }
+    }
+
     private static choseRandomComment(array: string[]): string {
         return array[Math.floor(Math.random() * array.length)]
     }
@@ -304,6 +339,25 @@ export class InstaAutoComment {
         } while (userFeed.isMoreAvailable());
 
         console.log("total posts: " + allItems.length.toString());
+    }
+
+    public async saveState(ig: IgApiClientExt) {
+        return writeFileAsync('state.json', await ig.exportState(), { encoding: 'utf8' });
+    }
+
+    public async readState(ig: IgApiClientExt) {
+        if (!await existsAsync('state.json'))
+            return;
+        await ig.importState(await readFileAsync('state.json', {encoding: 'utf8'}));
+    }
+
+    /**
+     * A wrapper function to log to the console
+     * @param name
+     * @returns {(data) => void}
+     */
+    public logEvent(name: string) {
+        return (data: any) => console.log(chalk.blue(name), chalk.blue(data));
     }
 }
 

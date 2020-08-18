@@ -28,16 +28,31 @@ let iac = new InstaAutoComment(trackingUserPk);
 
 
 (async () => {
-    iac.login().then(async r => {
-        let intervalFunc = async () => {
-            console.log(chalk.blue('LOOP START'), new Date().toLocaleTimeString());
-            await iac.selectUserItemsWithTimeRestriction(postSecondsOld, DoComment.IfThereIsNoComment);
-            // await iac.printIdsToCommentOn();
-            await iac.postRandomCommentsOnSelectedItems(commentsArray, 1000);
-            console.log(chalk.blue('LOOP END'), new Date().toLocaleTimeString());
-            console.log('\n');
-        };
-        await intervalFunc();
-        let interval = setInterval(intervalFunc, loopInterval);
-    })
+    await iac.login().then(async r => {
+        // you received a notification
+        iac.ig.fbns.push$.subscribe(
+            push => {
+                if (push.pushCategory === "post") {
+                    iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
+                }
+            }
+        );
+
+        // the client received auth data
+        // the listener has to be added before connecting
+        iac.ig.fbns.auth$.subscribe(async (auth) => {
+            //saves the auth
+            await iac.saveState(iac.ig);
+        });
+
+        // 'error' is emitted whenever the client experiences a fatal error
+        iac.ig.fbns.error$.subscribe(iac.logEvent('error'));
+
+        // 'warning' is emitted whenever the client errors but the connection isn't affected
+        iac.ig.fbns.warning$.subscribe(iac.logEvent('warning'));
+
+        // this sends the connect packet to the server and starts the connection
+        // the promise will resolve once the client is fully connected (once /push/register/ is received)
+        await iac.ig.fbns.connect();
+    });
 })();
