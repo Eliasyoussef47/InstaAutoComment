@@ -24,7 +24,7 @@ const writeFileAsync = promisify(writeFile);
 const readFileAsync = promisify(readFile);
 const existsAsync = promisify(exists);
 
-const igUser = process.env.IG_USERNAME;
+let igUser = process.env.IG_USERNAME;
 let igPass = process.env.IG_PASSWORD;
 const trackingUserPk: number = +process.env.TRACKING_USER_PK;
 
@@ -41,7 +41,6 @@ export class InstaAutoComment {
 
     constructor(userPk: number) {
         this.ig = withFbns(new IgApiClient());
-        this.ig.state.generateDevice(igUser);
         this.ig.state.proxyUrl = process.env.IG_PROXY;
         this.userPk = userPk;
     }
@@ -49,6 +48,18 @@ export class InstaAutoComment {
     public async login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
         await this.readState(this.ig);
         return new Promise(async (resolve, reject) => {
+            if (!igUser) {
+                await inquirer.prompt([
+                    {
+                        type: 'text',
+                        name: 'igUser',
+                        message: 'Username',
+                    }
+                ]).then(r => {
+                    igUser = r.igUser;
+                });
+            }
+            this.ig.state.generateDevice(igUser);
             if (!igPass) {
                 console.log("Username: " + igUser);
                 await inquirer.prompt([
