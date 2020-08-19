@@ -31,8 +31,8 @@ let iac = new InstaAutoComment(trackingUserPk);
     await iac.login().then(async r => {
         // you received a notification
         iac.ig.fbns.push$.subscribe(
-            push => {
-                if (push.pushCategory === "post") {
+            (push) => {
+                if (push.pushCategory === "post" && push.sourceUserId === trackingUserPk.toString()) {
                     iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
                 }
             }
@@ -41,6 +41,8 @@ let iac = new InstaAutoComment(trackingUserPk);
         // the client received auth data
         // the listener has to be added before connecting
         iac.ig.fbns.auth$.subscribe(async (auth) => {
+            // logs the auth
+            // iac.logEvent('auth')(auth);
             //saves the auth
             await iac.saveState(iac.ig);
         });

@@ -272,7 +272,7 @@ export class InstaAutoComment {
         this.idsToCommentOn = [];
     }
 
-    public async commentOnPostWithRandomComment(mediaId: string, commentsArray: string[]) {
+    public commentOnPostWithRandomComment = async (mediaId: string, commentsArray: string[]): Promise<void> => {
         let mediaRepo = this.ig.media;
         let comment = {mediaId: undefined, text: undefined};
         let commentResult: MediaRepositoryCommentResponseComment;
@@ -298,7 +298,7 @@ export class InstaAutoComment {
                 console.log(err);
             }
         }
-    }
+    };
 
     private static choseRandomComment(array: string[]): string {
         return array[Math.floor(Math.random() * array.length)]
@@ -312,21 +312,6 @@ export class InstaAutoComment {
 
         console.log("Following:");
         let first = followingFeed.toPlain();
-
-        // let second = await followingFeed.items();
-        // console.log(second.length);
-
-        // const feedState = followingFeed.serialize(); // You can serialize feed state to have an ability to continue get next pages.
-        // console.log(feedState);
-        // followingFeed.deserialize(feedState);
-
-        // // You can use RxJS stream to subscribe to all results in this feed.
-        // // All the RxJS powerful is beyond this example - you should learn it by yourself.
-        // followingFeed.items$.subscribe(
-        //     following => console.log(following),
-        //     error => console.error(error),
-        //     () => console.log('Complete!'),
-        // );
     }
 
     public async accountMediaFeed(id: number) {
