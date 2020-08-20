@@ -3,7 +3,7 @@ import {DoComment} from "./InstaAutoComment";
 import * as util from "util";
 require('dotenv').config();
 const chalk = require('chalk');
-
+const ora = require('ora');
 let ref, urlSegmentToInstagramId, instagramIdToUrlSegment;
 ref = require('instagram-id-to-url-segment');
 instagramIdToUrlSegment = ref.instagramIdToUrlSegment;
@@ -57,5 +57,7 @@ let iac = new InstaAutoComment(trackingUserPk);
         // this sends the connect packet to the server and starts the connection
         // the promise will resolve once the client is fully connected (once /push/register/ is received)
         await iac.ig.fbns.connect();
+
+        const spinner = ora('Loading unicorns').start();
     });
 })();
