@@ -7,7 +7,7 @@ Automatically places a comment on a user's new Instagram post.
 - Typescript
 - git (optional)
 ## Installation:
-- Download this repository manualy or use `git clone https://github.com/Eliasyoussef47/InstaAutoComment`
+- Download the files from the latest release
 - `npm install`
 ## Configuration:
 - Compile the typescipt files with `tsc index.ts` in your terminal
