@@ -26,8 +26,7 @@ const existsAsync = promisify(exists);
 
 let igUser = process.env.IG_USERNAME;
 let igPass = process.env.IG_PASSWORD;
-const trackingUserPk: number = +process.env.TRACKING_USER_PK;
-const trackedUsersUsernames: string[] = process.env.TRACKING_USER_PK.split(",").map((item)=>item.trim());
+const trackedUsersUsernames: string[] = process.env.TRACKED_USERS_USERNAMES.split(",").map((item)=>item.trim());
 
 
 export class InstaAutoComment {
