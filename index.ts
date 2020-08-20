@@ -24,16 +24,24 @@ const loopInterval: number = +process.env.LOOP_INTERVAL;
 const trackingUserPk: number = +process.env.TRACKING_USER_PK;
 const postSecondsOld: number = +process.env.POST_SECONDS_OLD;
 const commentsArray = process.env.COMMENTS_ARRAY.split(",").map((item)=>item.trim());
+const trackedUsersUsernames: string[] = process.env.TRACKED_USERS_USERNAMES.split(",").map((item)=>item.trim());
+let trackedUsersPks: number[];
 
-let iac = new InstaAutoComment(trackingUserPk);
+let iac = new InstaAutoComment();
 
 
 (async () => {
     await iac.login().then(async r => {
+        trackedUsersPks = await iac.usernamesToPks(trackedUsersUsernames);
+        iac.trackedUsersUsernames = trackedUsersUsernames;
+        trackedUsersUsernames.forEach(trackedUsersUsername => {
+            console.log(chalk.blue("Tracking: ", trackedUsersUsername));
+        });
+        console.log('\n');
         // you received a notification
         iac.ig.fbns.push$.subscribe(
             (push) => {
-                if (push.pushCategory === "post" && push.sourceUserId === trackingUserPk.toString()) {
+                if (push.pushCategory === "post" && trackedUsersPks.includes(Number(push.sourceUserId))) {
                     iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
                 }
             }
@@ -58,6 +66,6 @@ let iac = new InstaAutoComment(trackingUserPk);
         // the promise will resolve once the client is fully connected (once /push/register/ is received)
         await iac.ig.fbns.connect();
 
-        const spinner = ora('Loading unicorns').start();
+        const spinner = ora('Waiting for notification').start();
     });
 })();

@@ -27,6 +27,7 @@ const existsAsync = promisify(exists);
 let igUser = process.env.IG_USERNAME;
 let igPass = process.env.IG_PASSWORD;
 const trackingUserPk: number = +process.env.TRACKING_USER_PK;
+const trackedUsersUsernames: string[] = process.env.TRACKING_USER_PK.split(",").map((item)=>item.trim());
 
 
 export class InstaAutoComment {
@@ -36,13 +37,15 @@ export class InstaAutoComment {
     public ig: IgApiClientFbns;
     public account: AccountRepository;
     public idsToCommentOn = [];
-    private userPk: number;
     private throttleSeconds = 1000;
+    public trackedUsersPks: number[];
+    public trackedUsersUsernames: string[];
 
-    constructor(userPk: number) {
+    constructor() {
         this.ig = withFbns(new IgApiClient());
         this.ig.state.proxyUrl = process.env.IG_PROXY;
-        this.userPk = userPk;
+        this.trackedUsersPks = [];
+        this.trackedUsersUsernames = [];
     }
 
     public async login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
@@ -75,9 +78,6 @@ export class InstaAutoComment {
             this.ig.request.end$.subscribe(() => this.saveState(this.ig));
             this.ig.account.login(igUser, igPass).then(async (result) => {
                 console.log("Logged in as: ", result.username);
-                let trackingUser = await this.ig.user.info(trackingUserPk);
-                console.log("Tracking: ", trackingUser.username);
-                console.log('\n');
                 this.auth = result;
                 this.account = this.ig.account;
                 resolve(result);
@@ -105,9 +105,6 @@ export class InstaAutoComment {
                         trustThisDevice: '1', // Can be omitted as '1' is used by default
                     }).then(async (result) => {
                         console.log("Logged in as: ", result.username);
-                        let trackingUser = await this.ig.user.info(trackingUserPk);
-                        console.log("Tracking: ", trackingUser.username);
-                        console.log('\n');
                         this.auth = result;
                         this.account = this.ig.account;
                         resolve(result);
@@ -133,52 +130,6 @@ export class InstaAutoComment {
     public feedItemIdToInstagramUrl(string: string): string {
         let res = string.substring(0, string.indexOf("_"));
         return instagramIdToUrlSegment(res);
-    }
-
-    /**
-     *
-     * @param id
-     */
-    private getUserFeed(id: string | number = this.userPk): UserFeed {
-        return this.ig.feed.user(id);
-    }
-
-    /**
-     * gets id's of the user's posts that were uploaded within "secondsOld" ago (ex: posts that were uploaded 3 hours ago)
-     * @param secondsOld
-     * @param doComment
-     */
-    public async selectUserItemsWithTimeRestriction(secondsOld: number = 3600, doComment: DoComment = DoComment.IfThereIsNoComment) {
-        let nowTimestamp = Math.floor(Date.now() / 1000);
-        let waitSeconds = 3000;
-        console.log("Selecting appropriate items");
-        let userFeed = this.getUserFeed();
-        let res;
-        let userFeedItems;
-        let breakDoWhileLoop = false;
-        do {
-            userFeedItems = await userFeed.items();
-            // console.log("SETTING TIMEOUT PROMISE FOR: " + (waitSeconds) + " SECONDS", new Date().toLocaleTimeString());
-            await new Promise(r => setTimeout(r, this.throttleSeconds));
-            for (let userFeedItem of userFeedItems) {
-                if ((nowTimestamp - userFeedItem.taken_at) <= secondsOld || secondsOld === -1) {// if the post isn't older than secondsOld
-                    if (doComment == DoComment.IfThereIsNoComment) {
-                        res = await this.haveCommented(userFeedItem);
-                        if (!res) {
-                            this.idsToCommentOn.push(userFeedItem.id);
-                        }
-                    } else if (doComment == DoComment.EvenIfThereIsAComment) {
-                        this.idsToCommentOn.push(userFeedItem.id);
-                    }
-                } else {
-                    breakDoWhileLoop = true;
-                    break;
-                }
-            }
-            if (breakDoWhileLoop) {
-                break;
-            }
-        } while (userFeed.isMoreAvailable());
     }
 
     public getUserPk(username: string): Promise<number> {
@@ -354,6 +305,20 @@ export class InstaAutoComment {
      */
     public logEvent(name: string) {
         return (data: any) => console.log(chalk.blue(name), chalk.blue(data));
+    }
+
+    public async usernamesToPks(usernames: string[]){
+        for (let username of usernames) {
+            this.trackedUsersPks.push(await this.ig.user.getIdByUsername(username));
+        }
+        return this.trackedUsersPks;
+    };
+
+    public async pksToUsernames(pks: number[]) {
+        for (let pk of pks) {
+            let userInfo = await this.ig.user.info(pk);
+            this.trackedUsersUsernames.push(userInfo.username);
+        }
     }
 }
 
