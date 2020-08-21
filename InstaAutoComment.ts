@@ -242,6 +242,7 @@ export class InstaAutoComment {
 
         try {
             commentResult = await mediaRepo.comment(comment);
+            console.log('\n');
             console.log(chalk.green("Commented on " + "https://www.instagram.com/p/" + instagramIdToUrlSegment(commentResult.media_id) + " with the comment " + commentResult.text));
         } catch (err) {
             if (err instanceof IgActionSpamError) {
@@ -300,10 +301,11 @@ export class InstaAutoComment {
     /**
      * A wrapper function to log to the console
      * @param name
-     * @returns {(data) => void}
+     * @param data
+     * @returns void
      */
-    public logEvent(name: string) {
-        return (data: any) => console.log(chalk.blue(name), chalk.blue(data));
+    public logEvent(name: string, data?) {
+        console.log(chalk.blue(name), chalk.blue(data));
     }
 
     public async usernamesToPks(usernames: string[]){

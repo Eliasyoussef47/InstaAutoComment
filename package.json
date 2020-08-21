@@ -10,6 +10,7 @@
     "instagram-private-api": "^1.39.2",
     "instagram_mqtt": "^0.2.16",
     "ora": "^5.0.0",
+    "pushbullet": "^2.4.0",
     "tsc": "^1.20150623.0"
   },
   "scripts": {
