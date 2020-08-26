@@ -46,9 +46,10 @@ let iac = new InstaAutoComment();
             console.log('\n');
             // you received a notification
             iac.ig.fbns.push$.subscribe(
-                (push) => {
+                async (push) => {
                     if (push.pushCategory === "post" && trackedUsersPks.includes(Number(push.sourceUserId))) {
-                        iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
+                        await iac.ig.media.like({d: 1, mediaId: push.actionParams["id"], moduleInfo: {module_name: 'feed_timeline'}})
+                        await iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
                     }
                 }
             );
@@ -84,6 +85,7 @@ let iac = new InstaAutoComment();
             const spinner = ora('Waiting for a notification').start();
         });
     } catch (e) {
+        console.log(e);
         if (pushbulletAccessToken) pusher.note('', 'InstaAutoComment | Error with program', e.message);
     }
 })();
