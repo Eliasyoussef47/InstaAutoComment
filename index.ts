@@ -30,50 +30,50 @@ let iac = new InstaAutoComment();
 
 (async () => {
     try {
-        await iac.login().then(async r => {
-            trackedUsersPks = await iac.usernamesToPks(trackedUsersUsernames);
-            iac.trackedUsersUsernames = trackedUsersUsernames;
-            console.log('\n');
-            // you received a notification
-            iac.ig.fbns.push$.subscribe(
-                async (push) => {
-                    if (push.pushCategory === "post" && trackedUsersPks.includes(Number(push.sourceUserId))) {
-                        await iac.ig.media.like({d: 1, mediaId: push.actionParams["id"], moduleInfo: {module_name: 'feed_timeline'}})
-                        await iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
-                    }
+        await iac.login();
+
+        trackedUsersPks = await iac.usernamesToPks(trackedUsersUsernames);
+        iac.trackedUsersUsernames = trackedUsersUsernames;
+        console.log('\n');
+        // you received a notification
+        iac.ig.fbns.push$.subscribe(
+            async (push) => {
+                if (push.pushCategory === "post" && trackedUsersPks.includes(Number(push.sourceUserId))) {
+                    await iac.ig.media.like({d: 1, mediaId: push.actionParams["id"], moduleInfo: {module_name: 'feed_timeline'}})
+                    await iac.commentOnPostWithRandomComment(push.actionParams["id"], commentsArray);
                 }
-            );
+            }
+        );
 
-            // the client received auth data
-            // the listener has to be added before connecting
-            iac.ig.fbns.auth$.subscribe(async (auth) => {
-                // logs the auth
-                // iac.logEvent('auth')(auth);
-                //saves the auth
-                await iac.saveState(iac.ig);
-            });
-
-            // 'error' is emitted whenever the client experiences a fatal error
-            iac.ig.fbns.error$.subscribe((fbnsError) => {
-                iac.logEvent('error', fbnsError);
-                if (pushbulletAccessToken) pusher.note('', 'InstaAutoComment | Error with MQTT client', fbnsError.message);
-            });
-
-            // 'warning' is emitted whenever the client errors but the connection isn't affected
-            iac.ig.fbns.warning$.subscribe((fbnsWarning) => {
-                iac.logEvent('warning', fbnsWarning);
-            });
-
-            // this sends the connect packet to the server and starts the connection
-            // the promise will resolve once the client is fully connected (once /push/register/ is received)
-            await iac.ig.fbns.connect();
-
-            trackedUsersUsernames.forEach(trackedUsersUsername => {
-                console.log(chalk.blue("Tracking: ", trackedUsersUsername));
-            });
-
-            const spinner = ora('Waiting for a notification').start();
+        // the client received auth data
+        // the listener has to be added before connecting
+        iac.ig.fbns.auth$.subscribe(async (auth) => {
+            // logs the auth
+            // iac.logEvent('auth')(auth);
+            //saves the auth
+            await iac.saveState(iac.ig);
         });
+
+        // 'error' is emitted whenever the client experiences a fatal error
+        iac.ig.fbns.error$.subscribe((fbnsError) => {
+            iac.logEvent('error', fbnsError);
+            if (pushbulletAccessToken) pusher.note('', 'InstaAutoComment | Error with MQTT client', fbnsError.message);
+        });
+
+        // 'warning' is emitted whenever the client errors but the connection isn't affected
+        iac.ig.fbns.warning$.subscribe((fbnsWarning) => {
+            iac.logEvent('warning', fbnsWarning);
+        });
+
+        // this sends the connect packet to the server and starts the connection
+        // the promise will resolve once the client is fully connected (once /push/register/ is received)
+        await iac.ig.fbns.connect();
+
+        trackedUsersUsernames.forEach(trackedUsersUsername => {
+            console.log(chalk.blue("Tracking: ", trackedUsersUsername));
+        });
+
+        const spinner = ora('Waiting for a notification').start();
     } catch (e) {
         console.log(e);
         if (pushbulletAccessToken) pusher.note('', 'InstaAutoComment | Error with program', e.message);

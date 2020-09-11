@@ -47,72 +47,76 @@ export class InstaAutoComment {
         this.trackedUsersUsernames = [];
     }
 
+    private loggedInFlow(result:AccountRepositoryLoginResponseLogged_in_user): AccountRepositoryLoginResponseLogged_in_user {
+        console.log("Logged in as: ", result.username);
+        this.auth = result;
+        this.account = this.ig.account;
+        return result;
+    }
+
     public async login(): Promise<AccountRepositoryLoginResponseLogged_in_user> {
         await this.readState(this.ig);
-        return new Promise(async (resolve, reject) => {
-            if (!igUser) {
-                await inquirer.prompt([
+        if (!igUser) {
+            await inquirer.prompt([
+                {
+                    type: 'text',
+                    name: 'igUser',
+                    message: 'Username',
+                }
+            ]).then(r => {
+                igUser = r.igUser;
+            });
+        }
+        this.ig.state.generateDevice(igUser);
+        if (!igPass) {
+            console.log("Username: " + igUser);
+            await inquirer.prompt([
+                {
+                    type: 'password',
+                    name: 'igPass',
+                    message: 'Password',
+                }
+            ]).then(r => {
+                igPass = r.igPass;
+            });
+        }
+        this.ig.request.end$.subscribe(() => this.saveState(this.ig));
+
+        try {
+            let result = await this.ig.account.login(igUser, igPass);
+            return this.loggedInFlow(result);
+        } catch (e) {
+            if (e instanceof IgLoginTwoFactorRequiredError) {//if user has TFA enabled
+                console.log("User has Two Factor Authentication enabled.");
+                const {username, totp_two_factor_on, two_factor_identifier} = e.response.body.two_factor_info;
+                // decide which method to use
+                const verificationMethod = totp_two_factor_on ? '0' : '1'; // default to 1 for SMS
+                // At this point a code should have been sent
+                // Get the code
+                const {code} = await inquirer.prompt([
                     {
-                        type: 'text',
-                        name: 'igUser',
-                        message: 'Username',
-                    }
-                ]).then(r => {
-                    igUser = r.igUser;
-                });
-            }
-            this.ig.state.generateDevice(igUser);
-            if (!igPass) {
-                console.log("Username: " + igUser);
-                await inquirer.prompt([
-                    {
-                        type: 'password',
-                        name: 'igPass',
-                        message: 'Password',
-                    }
-                ]).then(r => {
-                    igPass = r.igPass;
-                });
-            }
-            this.ig.request.end$.subscribe(() => this.saveState(this.ig));
-            this.ig.account.login(igUser, igPass).then(async (result) => {
-                console.log("Logged in as: ", result.username);
-                this.auth = result;
-                this.account = this.ig.account;
-                resolve(result);
-            }).catch(async (e) => {
-                if (e instanceof IgLoginTwoFactorRequiredError) {//if user has TFA enabled
-                    console.log("User has Two Factor Authentication enabled.");
-                    const {username, totp_two_factor_on, two_factor_identifier} = e.response.body.two_factor_info;
-                    // decide which method to use
-                    const verificationMethod = totp_two_factor_on ? '0' : '1'; // default to 1 for SMS
-                    // At this point a code should have been sent
-                    // Get the code
-                    const {code} = await inquirer.prompt([
-                        {
-                            type: 'input',
-                            name: 'code',
-                            message: `Enter code received via ${verificationMethod === '1' ? 'SMS' : 'TOTP'}`,
-                        },
-                    ]);
+                        type: 'input',
+                        name: 'code',
+                        message: `Enter code received via ${verificationMethod === '1' ? 'SMS' : 'TOTP'}`,
+                    },
+                ]);
+                try {
                     // Use the code to finish the login process
-                    this.ig.account.twoFactorLogin({
+                    let result = await this.ig.account.twoFactorLogin({
                         username,
                         verificationCode: code,
                         twoFactorIdentifier: two_factor_identifier,
                         verificationMethod, // '1' = SMS (default), '0' = TOTP (google auth for example)
                         trustThisDevice: '1', // Can be omitted as '1' is used by default
-                    }).then(async (result) => {
-                        console.log("Logged in as: ", result.username);
-                        this.auth = result;
-                        this.account = this.ig.account;
-                        resolve(result);
                     });
-                } else {
-                    reject(e);
+                    return this.loggedInFlow(result);
+                } catch (e) {
+                    console.log(e);
                 }
-            });
-        });
+            } else {
+                throw e;
+            }
+        }
     }
 
     public logout(): Promise<StatusResponse> {
