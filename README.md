@@ -1,5 +1,5 @@
 # InstaAutoComment
-Automatically places a comment on a user's new Instagram post.
+Automatically places a comment on specific users' new Instagram post.
 
 # Usage
 ## Requirements:
@@ -14,8 +14,11 @@ Automatically places a comment on a user's new Instagram post.
 - Make a copy of the file [.env.example](.env.example) and name it .env, fill the next fields inside the file:
   - IG_USERNAME (optional): the username of the user you want to login with, if this is left empty you will get asked to provide it when running the program.
   - IG_PASSWORD (optional): the password of the user you want to login with, if this is left empty you will get asked to provide it when running the program.
-  - TRACKING_USER_PK: th pk (instagram user ID) of the user you want to track and comment on their posts.
-  - COMMENTS_ARRAY: a comma delimmeted string with the comments options the program is going to chose from while commenting on a post
+  - TRACKED_USERS_USERNAMES: the username of the user you want to track and comment on their posts.
+  - COMMENTS_ARRAY: a comma delimmeted string with the comments options the program is going to choose from while commenting on a post.
+  - PUSHBULLET_NOTIFICATION: true or false. Whether you want to receive a notification via pushbullet when this program comments on someone's post. (You need a pushbullet access token)
+  - PUSHBULLET_ACCESS_TOKEN (required if PUSHBULLET_NOTIFICATION is true otherwise optional): A pushbullet access token needed to use pushbullet notifications.
+- You need to turn on post notification on the users you have specified in TRACKED_USERS_USERNAMES from your phone for this program to work.
 ## Running:
 `node index.js`
 If the IG_USERNAME or IG_PASSWORD are missing the program will ask you to fill them.
