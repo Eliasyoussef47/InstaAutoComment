@@ -8,11 +8,11 @@ I was done with my sister always asking me to like and comment on het Instagram 
 - Typescript
 - git (optional)
 ## Installation:
-- Download the files from the latest release
+- Download the files from the latest release or git
 - `npm install`
 ## Configuration:
-- Compile the typescipt files with `tsc index.ts` in your terminal
-- Make a copy of the file [.env.example](.env.example) and name it .env, fill the next fields inside the file:
+- Compile the typescipt files by running `tsc index.ts` in your terminal
+- Make a copy of the file [.env.example](.env.example) and name it ".env", fill the next fields inside the file:
   - IG_USERNAME (optional): the username of the user you want to login with, if this is left empty you will get asked to provide it when running the program.
   - IG_PASSWORD (optional): the password of the user you want to login with, if this is left empty you will get asked to provide it when running the program.
   - TRACKED_USERS_USERNAMES: the username of the user you want to track and comment on their posts.
