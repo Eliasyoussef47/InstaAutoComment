@@ -1,7 +1,7 @@
 # InstaAutoComment
 Automatically places a comment on specific users' new Instagram post.
 # Why was this made?
-I was done with my sister always asking me to like and comment on het Instagram account so I made this.
+I was done with my sister always asking me to like and comment on her Instagram account so I made this.
 # Usage
 ## Requirements:
 - Node.js
